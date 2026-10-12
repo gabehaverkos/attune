@@ -1,0 +1,3 @@
+# The app sits behind sign-in, and /demo opens a demo account.
+User-agent: *
+Disallow: /demo

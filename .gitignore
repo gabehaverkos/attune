@@ -1,0 +1,45 @@
+node_modules
+.claude
+.vscode
+nul
+case-study
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database dumps the backup service writes on a server
+/backups
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+backend/.venv/
+.tmp
+docs
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Agent and browser test artifacts
+.pi-subagents/
+web/playwright-report/
+web/test-results/
+web/.env.playwright
+
+.ruff_cache
+.pytest_cache

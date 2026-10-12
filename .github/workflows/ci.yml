@@ -1,0 +1,97 @@
+# Checks every push and pull request, and puts a push to main on the server once
+# the checks pass.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run basedpyright
+
+  # backend/tests, against a Postgres like the stack's. The clash-options test asks
+  # the web app's own code, so this job installs that too.
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: attune
+          POSTGRES_PASSWORD: tests
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U attune"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_PASSWORD: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+        working-directory: backend
+      - run: uv run pytest
+        working-directory: backend
+
+  # One deploy at a time, and never a half-finished one cancelled by the next.
+  deploy:
+    if: github.event_name == 'push'
+    needs: [web, backend, tests]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      # Reset, not pull: the server follows main even when its history is rewritten.
+      - name: Pull and rebuild on the server
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          # The server's public host key (`ssh-keyscan -t ed25519 <address>`), so the
+          # workflow only ever talks to this server. It changes if the server is rebuilt.
+          KNOWN_HOSTS: 34.153.16.107 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGvFYGqJPXn+oANYtQxSnQcpdwtpye2oxAsocX3TgPUB
+          TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy "$TARGET" \
+            'cd attune && git fetch origin main && git reset --hard origin/main && docker compose up -d --build && docker image prune -f'
+      - name: Check the site answers
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors -o /dev/null https://attune.haverkos.dev/welcome

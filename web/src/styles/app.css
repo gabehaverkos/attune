@@ -1,0 +1,5 @@
+/* The app's styles: the theme (every token), the frame of the app, and every animation. */
+@import 'tailwindcss';
+@import './theme.css';
+@import './layout.css';
+@import './motion.css';

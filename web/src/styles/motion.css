@@ -1,0 +1,124 @@
+/*
+ * Every animation in the app, in one place. Components name an animation
+ * (`animate-stream-token`, `animate-activity`) and this file says what it does.
+ * The Svelte transitions and the message send flight are beside it, in
+ * `motion.ts`, and honor reduced motion the same way.
+ */
+
+:root {
+	--motion-fast: 200ms;
+	--motion-page: 300ms;
+	--motion-slow: 700ms;
+	--motion-theme: 450ms;
+	--motion-reveal: 320ms;
+	--motion-appear: 900ms;
+	--motion-replace: 240ms;
+	--motion-enter: 180ms;
+	--motion-token: 220ms;
+	--motion-ease: cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@theme {
+	/* Pages and the app canvas as they first appear. */
+	--animate-fade-in: fade-in var(--motion-page) ease-out both;
+	/* What the assistant is doing: it arrives, then breathes while it lasts. */
+	--animate-activity:
+		activity-in var(--motion-enter) ease-out both,
+		activity-pulse 1.6s ease-in-out var(--motion-enter) infinite;
+	/* Each word of a streaming reply as it lands. */
+	--animate-stream-token: stream-token-in var(--motion-token) var(--motion-ease) both;
+	/* A bar filling while something applies. */
+	--animate-progress: progress-stripes 0.8s linear infinite;
+
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+	}
+
+	@keyframes activity-in {
+		from {
+			opacity: 0;
+			transform: translateY(0.2em);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	@keyframes activity-pulse {
+		50% {
+			opacity: 0.55;
+		}
+	}
+
+	@keyframes stream-token-in {
+		from {
+			opacity: 0;
+			filter: blur(2px);
+			top: 0.3em;
+		}
+		to {
+			opacity: 1;
+			filter: blur(0);
+			top: 0;
+		}
+	}
+
+	@keyframes progress-stripes {
+		from {
+			background-position: 0 0;
+		}
+		to {
+			background-position: 22.627px 0;
+		}
+	}
+}
+
+/* The moving stripes `animate-progress` slides across a filled bar. */
+@utility progress-stripes {
+	background-image: repeating-linear-gradient(
+		-45deg,
+		transparent 0,
+		transparent 8px,
+		color-mix(in oklch, var(--primary-foreground) 25%, transparent) 8px,
+		color-mix(in oklch, var(--primary-foreground) 25%, transparent) 16px
+	);
+	background-size: 22.627px 22.627px;
+}
+
+/* The sessions drawer sliding down from the top edge. */
+.sessions-panel {
+	transition: transform var(--motion-page) ease-in-out;
+}
+
+/*
+ * Switching between light and dark: the page cross-fades as a whole. Clicks
+ * pass through the fading picture to the live page beneath.
+ */
+::view-transition {
+	pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: var(--motion-theme);
+	animation-timing-function: ease-in-out;
+}
+
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+	transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition-duration: 0ms !important;
+		scroll-behavior: auto !important;
+	}
+}

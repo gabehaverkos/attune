@@ -1,0 +1,152 @@
+/*
+ * The look of the app: every color, radius, type size, shadow and layer, in one
+ * place. Components use these through Tailwind (`bg-card`, `text-caption`,
+ * `shadow-raised`); restyling the app is editing this file.
+ *
+ * The palette is set on :root and redefined under .dark, which the root element
+ * carries when the dark theme is on.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	color-scheme: light;
+	--radius: 0.625rem;
+
+	--background: oklch(0.982 0.012 84);
+	--foreground: oklch(0.21 0.018 75);
+	--card: oklch(0.995 0.006 92);
+	--primary: oklch(0.31 0.035 125);
+	--primary-foreground: oklch(0.985 0.01 90);
+	--secondary: oklch(0.94 0.018 88);
+	--secondary-foreground: oklch(0.28 0.026 90);
+	--muted: oklch(0.945 0.014 88);
+	--muted-foreground: oklch(0.48 0.025 78);
+	--accent: oklch(0.925 0.028 120);
+	--accent-foreground: oklch(0.25 0.03 118);
+	--destructive: oklch(0.577 0.245 27.325);
+	--destructive-foreground: oklch(1 0 0);
+	/* Worth knowing but not blocking, such as an event overlapping a routine.
+	   Deeper than --schedule-amber so a warning never reads as a pattern color. */
+	--warning: oklch(0.62 0.16 52);
+	--border: oklch(0.86 0.018 80);
+	--ring: oklch(0.58 0.046 125);
+	/* Small uppercase headings over a section, such as the memory panel's. */
+	/* What raised surfaces cast. */
+	--shadow-color: oklch(0.21 0.018 75);
+	/* Additional schedule identities; the first schedule uses primary. */
+	--schedule-amber: #f59e0b;
+	--schedule-blue: #0284c7;
+	--schedule-rose: #e11d48;
+	/* A card on a day's track, which is itself the muted tone: a routine a shade
+	   deeper than the track, an event the lightest thing on it. */
+	--day-routine: color-mix(in oklch, var(--muted), var(--foreground) 8%);
+	--day-event: var(--card);
+}
+
+.dark {
+	color-scheme: dark;
+	--background: oklch(0.19 0.012 84);
+	--foreground: oklch(0.94 0.018 84);
+	--card: oklch(0.235 0.014 84);
+	--primary: oklch(0.8 0.065 125);
+	--primary-foreground: oklch(0.2 0.025 125);
+	--secondary: oklch(0.29 0.018 88);
+	--secondary-foreground: oklch(0.94 0.018 88);
+	--muted: oklch(0.29 0.014 88);
+	--muted-foreground: oklch(0.73 0.025 78);
+	--accent: oklch(0.34 0.035 120);
+	--accent-foreground: oklch(0.94 0.03 118);
+	--destructive: oklch(0.75 0.15 27);
+	--destructive-foreground: oklch(0.19 0.02 27);
+	--warning: oklch(0.78 0.13 58);
+	--border: oklch(0.4 0.018 80);
+	--ring: oklch(0.72 0.046 125);
+	--shadow-color: oklch(0 0 0);
+	--schedule-amber: oklch(0.8 0.085 80);
+	--schedule-blue: oklch(0.8 0.065 235);
+	--schedule-rose: oklch(0.8 0.065 15);
+	--day-routine: color-mix(in oklch, var(--card), var(--foreground) 9%);
+	--day-event: color-mix(in oklch, var(--card), var(--foreground) 18%);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-warning: var(--warning);
+	--color-border: var(--border);
+	--color-ring: var(--ring);
+	--color-schedule-amber: var(--schedule-amber);
+	--color-schedule-blue: var(--schedule-blue);
+	--color-schedule-rose: var(--schedule-rose);
+
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	/* The sizes below Tailwind's own scale that the app uses. */
+	--text-3xs: 0.65rem;
+	--text-2xs: 0.7rem;
+	--text-caption: 0.8rem;
+	--text-note: 0.85rem;
+	/* What the calendar and the panels read at: between Tailwind's sm and base. */
+	--text-body: 0.9375rem;
+	--text-body--line-height: 1.45;
+
+	/* Rail bubbles and floating panels; the smaller one for tiles within them. */
+	--shadow-raised: 0 10px 30px -24px color-mix(in oklch, var(--shadow-color) 35%, transparent);
+	--shadow-raised-sm: 0 8px 24px -24px color-mix(in oklch, var(--shadow-color) 35%, transparent);
+	/* Proposal cards in the conversation. */
+	--shadow-card: 0 14px 40px -28px color-mix(in oklch, var(--shadow-color) 42%, transparent);
+}
+
+:root {
+	/* Layers above the app: an interface's view, and a dialog opened over it. */
+	--z-view: 60;
+	--z-dialog: 70;
+}
+
+/* Rail bubbles plus responsive outer padding. */
+.app-canvas {
+	--rail-width: 5rem;
+}
+@media (min-width: 640px) {
+	.app-canvas {
+		--rail-width: 5.5rem;
+	}
+}
+@media (min-width: 1024px) {
+	.app-canvas {
+		--rail-width: 6rem;
+	}
+}
+.chat-layout {
+	--chat-column-width: 40%;
+}
+@media (max-width: 799px) {
+	.chat-layout {
+		--chat-column-width: calc(100% - 2rem);
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	body {
+		@apply bg-background text-foreground;
+	}
+}
