@@ -1,0 +1,2 @@
+# Shell scripts run inside Linux containers, whatever checked them out.
+*.sh text eol=lf

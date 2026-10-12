@@ -1,0 +1,35 @@
+[project]
+name = "attune-backend"
+version = "0.1.0"
+description = "Attune's API, chat runs and memory worker."
+requires-python = ">=3.14"
+dependencies = [
+	"alembic>=1.18.0",
+	"fastapi>=0.115.0",
+	"uvicorn[standard]>=0.32.0",
+	"httpx>=0.27.0",
+	"sqlalchemy>=2.0.0",
+	"psycopg[binary]>=3.1.0",
+	"pydantic-ai-slim[openai]>=1.104.0,<2",
+	"opentelemetry-sdk>=1.39.1,<2",
+	"opentelemetry-exporter-otlp-proto-http>=1.39.1,<2",
+	"pgvector>=0.4.0",
+	"voyageai>=0.3.5",
+]
+
+[dependency-groups]
+dev = [
+	"basedpyright>=1.39.9",
+	"pytest>=8.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+include = ["app"]
+
+[tool.uv]
+package = false

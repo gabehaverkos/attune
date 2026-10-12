@@ -1,0 +1,11 @@
+# The development stack serves https://localhost, under a certificate Caddy issues
+# itself: a browser asks once to accept it.
+localhost {
+	tls internal
+
+	# A development stack is for this machine and its own network, not the internet.
+	@outside_lan not remote_ip private_ranges
+	respond @outside_lan "Local network access only" 403
+
+	reverse_proxy web:5173
+}

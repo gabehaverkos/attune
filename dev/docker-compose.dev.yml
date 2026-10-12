@@ -1,0 +1,75 @@
+# Overlay on the root docker-compose.yml. Relative paths resolve against the
+# repository root: docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml
+
+# Tracing goes where the root .env says, as on a server, but in development it
+# includes what was said: the only content here is the developer's own.
+x-attune-tracing: &attune-tracing
+  LANGFUSE_INCLUDE_CONTENT: "true"
+
+services:
+  postgres:
+    # Expose Postgres only to tools on this machine.
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    environment: *attune-tracing
+    healthcheck:
+      disable: true
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic:ro
+      - ./backend/alembic.ini:/app/alembic.ini:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "uv run --no-dev alembic upgrade head && exec uv run --no-dev uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+      ]
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  memory-worker:
+    environment: *attune-tracing
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      - ./backend/app:/app/app
+    # Restart on Python changes, like the backend's --reload. A job cut off
+    # mid-run is recovered later by the worker's stale-job sweep.
+    command:
+      [
+        "uv", "run", "--no-dev", "watchfiles", "--filter", "python",
+        "--target-type", "command", "python -m app.memory.work", "app",
+      ]
+
+  web:
+    build:
+      context: ./web
+      target: build
+    environment:
+      BETTER_AUTH_URL: https://localhost
+      PORT: 5173
+      HOST: 0.0.0.0
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      VITE_HMR_PROTOCOL: wss
+      VITE_HMR_CLIENT_PORT: 443
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+      - /app/.svelte-kit
+    ports:
+      - "127.0.0.1:5173:5173"
+
+  # Only a server backs its database up: nothing here asks for this profile.
+  backup:
+    profiles: ["server"]
+
+  caddy:
+    volumes:
+      - ./dev/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config

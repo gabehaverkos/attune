@@ -1,0 +1,150 @@
+# The application database runs in the stack rather than in a hosted service,
+# and holds memory too: pgvector gives it the embeddings memory searches. Both consumers take a plain postgresql:// URL — the backend rewrites
+# it for psycopg itself — so one value serves the API and the auth pool.
+x-database-url: &database-url postgresql://attune:${POSTGRES_PASSWORD:-attune-development}@postgres:5432/attune
+
+# Docker keeps a container's output forever unless told otherwise, and a server
+# that is never rebuilt would fill its disk with it.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Tracing to Langfuse, on once both project keys are set. Content (prompts,
+# replies, what tools read and wrote) is left out: the privacy notice says so.
+x-tracing: &tracing
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_INCLUDE_CONTENT: "false"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: attune
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-attune-development}
+      POSTGRES_DB: attune
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U attune -d attune",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *tracing
+      DATABASE_URL: *database-url
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for the conversational runtime}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:?Set VOYAGE_API_KEY for memory embeddings}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/openapi.json', timeout=3)",
+        ]
+      # Asked often while starting, so the memory worker is not kept waiting, then
+      # rarely: each check is a line in the backend's log.
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+
+  memory-worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *tracing
+      DATABASE_URL: *database-url
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for the conversational runtime}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:?Set VOYAGE_API_KEY for memory embeddings}
+    command: ["uv", "run", "--no-dev", "python", "-m", "app.memory.work"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      DATABASE_URL: *database-url
+      BACKEND_URL: http://backend:8000
+      # The public site, the hostname Caddy serves.
+      BETTER_AUTH_URL: https://attune.haverkos.dev
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET to a long random value}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Verification emails. Without a key, links are logged by this service instead.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      PORT: 3000
+      HOST: 0.0.0.0
+      # Caddy is the one proxy in front, so the visitor's address is the last one it
+      # adds. Sign-in and sign-up limits are kept per address.
+      ADDRESS_HEADER: X-Forwarded-For
+      XFF_DEPTH: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  # A dump of the database every day, kept in ./backups and copied to a Cloud
+  # Storage bucket (backup/backup.sh). The development overlay turns it off.
+  backup:
+    build:
+      context: ./backup
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      DATABASE_URL: *database-url
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+      backend:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,15 @@
+# Attune's public hostname. Caddy gets and renews its certificate on its own once
+# DNS points here and ports 80 and 443 are open.
+attune.haverkos.dev {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+
+	reverse_proxy web:3000
+}
